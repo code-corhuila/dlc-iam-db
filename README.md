@@ -1,36 +1,9 @@
-\# dlc-iam-db
+# dlc-iam-db
 
+Structural skeleton for the IAM-owned `iam` schema in Di Lucca's shared PostgreSQL instance.
 
+This revision contains no executable database change. The empty SQL files are placeholders and are not referenced by a Liquibase change set. The changelog hierarchy is valid but currently applies zero changes. `deploy/compose.yml` does not launch a database or migration runner yet.
 
-> iam bounded context: database (schema, seeds, migrations)
+When implementing a change, add its SQL, its reviewed rollback file when applicable, and a change set in the matching folder's `changelog.yaml`. Keep changes within the `iam` schema. Production recovery uses a forward corrective migration; rollback files are tested in non-production.
 
-
-
-Part of the \*\*LMS Library\*\* distributed system — team `lms-library`, Grupo 2. Governance and documentation live in \[`library-docs`](https://github.com/code-corhuila/library-docs).
-
-
-
-\## Branching
-
-
-
-Three permanent branches. \*\*None of them accepts a direct commit\*\* — you enter through a child branch and leave through a Pull Request.
-
-develop  <--PR--  feat/... fix/... chore/...
-
-qa       <--PR--  qa/...
-
-main     <--PR--  release/...  hotfix/...
-
-
-
-Promotion happens \*\*by re-application\*\* (`git cherry-pick -x`), never by merging one permanent branch into another: `merge develop -> qa` and `merge qa -> main` do not exist in this model.
-
-
-
-`main` requires \*\*1 approval from `ariel5253`\*\*. On `develop` and `qa` the team sets its own review rule.
-
-
-
-Full policy: `00-governance/branching-policy.md` in `library-docs`.
-
+The repository's existing `.github/CODEOWNERS` and professor-managed `env-tracking.yml` must be preserved when this skeleton is copied into the real repository.
