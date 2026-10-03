@@ -1,0 +1,5 @@
+# Skeleton only.
+# The approved runtime uses one shared PostgreSQL database with four
+# logically owned schemas. This repository is scoped exclusively to `iam`.
+# Runtime IAM access must not read or write another service's schema.
+services: {}
