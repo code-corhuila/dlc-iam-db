@@ -1,0 +1,30 @@
+name: DB skeleton CI
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  structure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check skeleton paths and nonempty changelogs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s changelog/changelog-master.yaml
+          for group in 01_ddl 02_dml 03_dcl 04_tcl; do
+            test -s "$group/changelog.yaml"
+          done
+          while IFS= read -r file; do
+            test -s "$file"
+          done < <(find 01_ddl 02_dml 03_dcl 04_tcl -name changelog.yaml -type f)
+          for group in 01_ddl 02_dml 03_dcl 04_tcl; do
+            while IFS= read -r path; do
+              relative_path="${path#"$group/"}"
+              rollback_path="05_rollbacks/$group/$relative_path"
+              test -d "$rollback_path"
+              test -f "$rollback_path/.gitkeep"
+            done < <(find "$group" -mindepth 1 -maxdepth 1 -type d | sort)
+          done
