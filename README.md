@@ -13,6 +13,17 @@ unreferenced placeholders. The API remains responsible for authentication,
 atomic refresh rotation, eligibility checks, event payload minimization and
 publishing; a table alone does not prove those behaviors.
 
+HU-IAM-003 keeps the existing unique normalized staff email and account status
+as the IAM source of truth. A new append-only `staff_account_audit` table records
+the actor, status transition and correlation ID without copying email or password
+data. A verified active account is required when a session row is created.
+Disabling an account atomically marks its existing sessions, refresh families
+and refresh credentials revoked; re-enabling never revives those records. The
+Auth API must still authorize ordinary staff creation, restrict it to Dentist
+and Secretary Assistant, insert the audit entry and approved `SessionRevoked`
+outbox events in the same transaction, and enforce revoked access tokens.
+Database triggers do not replace those API and event responsibilities.
+
 ## Bootstrap and migration
 
 `dlc-infra-postgres` supplies the shared engine at `dlc-postgres:5432`. A platform
@@ -50,6 +61,16 @@ from an empty test project with a direct `update` to prove a fresh installation.
 The SQL check rejects a Patient role and verifies runtime schema/table scope.
 Real IAM API connectivity and real environment credentials require separate
 integration evidence; this fixture does not claim HU-IAM-001 is complete.
+
+For HU-IAM-003, run `tests/hu-iam-003.sql` after an isolated fresh `update`.
+For an upgrade, apply the published `origin/develop` changelog at `b94c57a`
+to a disposable database, insert `tests/hu-iam-003-prior.sql`, apply this
+branch's changelog, then run `tests/hu-iam-003-upgrade.sql`, `tests/verify.sql`
+and the lifecycle test. See the
+[HU-IAM-003 verification](tests/hu-iam-003-verification-2026-10-21.md).
+The new active/verified constraint will stop an upgrade with inconsistent
+legacy accounts; review owner data before retrying rather than changing it
+silently.
 
 When implementing later changes, add SQL, reviewed rollback where applicable,
 and a change set in the matching folder's `changelog.yaml`. Never edit an

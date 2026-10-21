@@ -2,11 +2,11 @@ BEGIN;
 CREATE SCHEMA patients; -- synthetic neighboring owner, rolled back below
 DO $$
 BEGIN
-  IF (SELECT count(*) FROM iam.users WHERE email = 'staff@example.test') <> 1 THEN
+  IF (SELECT count(*) FROM iam.users WHERE email IN ('staff@example.test', 'prior@example.test')) <> 1 THEN
     RAISE EXCEPTION 'Upgrade lost the existing IAM user';
   END IF;
-  IF (SELECT count(*) FROM iam.databasechangelog) <> 3 THEN
-    RAISE EXCEPTION 'Expected three applied IAM changesets';
+  IF (SELECT count(*) FROM iam.databasechangelog) <> 4 THEN
+    RAISE EXCEPTION 'Expected four applied IAM changesets';
   END IF;
   IF NOT has_schema_privilege('iam_runtime', 'iam', 'USAGE')
      OR has_schema_privilege('iam_runtime', 'iam', 'CREATE')
