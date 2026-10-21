@@ -1,1 +1,15 @@
-databaseChangeLog: []
+databaseChangeLog:
+  - changeSet:
+      id: 001-iam-identity
+      author: dlc-iam-db
+      changes:
+        - sqlFile:
+            path: 001_identity.sql
+            relativeToChangelogFile: true
+  - changeSet:
+      id: 002-iam-session-security
+      author: dlc-iam-db
+      changes:
+        - sqlFile:
+            path: 002_session_security.sql
+            relativeToChangelogFile: true

@@ -1,1 +1,8 @@
-databaseChangeLog: []
+databaseChangeLog:
+  - changeSet:
+      id: 001-iam-runtime-grants
+      author: dlc-iam-db
+      changes:
+        - sqlFile:
+            path: 001_grants.sql
+            relativeToChangelogFile: true

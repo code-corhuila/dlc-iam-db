@@ -1,5 +1,23 @@
-# Skeleton only.
-# The approved runtime uses one shared PostgreSQL database with four
-# logically owned schemas. This repository is scoped exclusively to `iam`.
-# Runtime IAM access must not read or write another service's schema.
-services: {}
+services:
+  iam-db-migrate:
+    image: liquibase/liquibase:4.33.0
+    profiles: [tooling]
+    working_dir: /workspace
+    volumes:
+      - ../:/workspace:ro
+    secrets:
+      - iam_migrator_password
+    environment:
+      DLC_POSTGRES_HOST: ${DLC_POSTGRES_HOST:-dlc-postgres}
+      DLC_POSTGRES_DB: ${DLC_POSTGRES_DB:-di_lucca}
+    networks: [platform]
+    entrypoint: ["/bin/sh", "/workspace/deploy/run-migration.sh"]
+    command: ["update"]
+
+secrets:
+  iam_migrator_password:
+    file: ${IAM_MIGRATOR_PASSWORD_FILE:-../secrets/iam-migrator-password.txt}
+
+networks:
+  platform:
+    external: true
