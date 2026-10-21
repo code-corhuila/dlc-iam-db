@@ -1,0 +1,30 @@
+name: dlc-iam-db-migration-test
+
+services:
+  postgres:
+    image: postgres:17.11-alpine3.24
+    environment:
+      POSTGRES_DB: di_lucca
+      POSTGRES_HOST_AUTH_METHOD: trust # isolated test only; no host port
+    volumes:
+      - ../deploy/bootstrap.sql:/docker-entrypoint-initdb.d/001_iam_bootstrap.sql:ro
+      - ./verify.sql:/checks/verify.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d di_lucca"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  migrate:
+    image: liquibase/liquibase:4.33.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DLC_POSTGRES_HOST: postgres
+      DLC_POSTGRES_DB: di_lucca
+    working_dir: /workspace
+    volumes:
+      - ../:/workspace:ro
+    entrypoint: ["/bin/sh", "/workspace/deploy/run-migration.sh"]
+    command: ["update"]
