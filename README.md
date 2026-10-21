@@ -18,7 +18,7 @@ password-recovery challenges: only these two purposes are accepted; expiry and
 consumption order are checked; consumed challenges cannot be changed or reused.
 The database stores a hash field, while the Auth API must prove that it hashes
 tokens before persistence. MFA challenges are outside this project under
-[ADR-016](https://github.com/code-corhuila/dlc-docs/pull/116). An upgrade with
+[ADR-016](https://github.com/code-corhuila/dlc-docs/blob/main/05-architecture/decisions/ADR-016-remove-mfa-from-project-scope.md). An upgrade with
 an unsupported existing purpose stops at the new constraint; inspect such IAM
 rows and resolve them through a reviewed owner-only correction before retrying.
 
