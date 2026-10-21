@@ -1,4 +1,5 @@
 databaseChangeLog:
-  - include:
-      file: changes/005_challenge_safety.yaml
+  - includeAll:
+      path: changes
       relativeToChangelogFile: true
+      endsWithFilter: .yaml

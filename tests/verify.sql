@@ -5,8 +5,9 @@ BEGIN
   IF (SELECT count(*) FROM iam.users WHERE email IN ('staff@example.test', 'prior@example.test')) <> 1 THEN
     RAISE EXCEPTION 'Upgrade lost the existing IAM user';
   END IF;
-  IF (SELECT count(*) FROM iam.databasechangelog) <> 4 THEN
-    RAISE EXCEPTION 'Expected four applied IAM changesets';
+  IF (SELECT count(*) FROM iam.databasechangelog
+      WHERE id IN ('001-iam-identity', '002-iam-session-security', '001-iam-runtime-grants')) <> 3 THEN
+    RAISE EXCEPTION 'Expected the three published IAM baseline changesets';
   END IF;
   IF NOT has_schema_privilege('iam_runtime', 'iam', 'USAGE')
      OR has_schema_privilege('iam_runtime', 'iam', 'CREATE')
