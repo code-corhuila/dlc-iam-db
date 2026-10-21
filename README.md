@@ -6,12 +6,21 @@ The physical PostgreSQL database is shared by IAM, Patients, Appointments, and B
 
 This repository follows the accepted PostgreSQL architecture defined in ADR-007 and ADR-008. ADR-010 preserves the same database ownership boundaries for transversal integration.
 
-The first three Liquibase changesets create staff identity and approved roles,
+The initial Liquibase changesets create staff identity and approved roles,
 durable sessions, refresh families and credentials, single-purpose challenges,
 an owner outbox, and explicit runtime grants. Existing empty SQL files remain
 unreferenced placeholders. The API remains responsible for authentication,
 atomic refresh rotation, eligibility checks, event payload minimization and
 publishing; a table alone does not prove those behaviors.
+
+The HU-IAM-004 change adds database guards for email-verification and
+password-recovery challenges: only these two purposes are accepted; expiry and
+consumption order are checked; consumed challenges cannot be changed or reused.
+The database stores a hash field, while the Auth API must prove that it hashes
+tokens before persistence. MFA challenges are outside this project under
+[ADR-016](https://github.com/code-corhuila/dlc-docs/pull/116). An upgrade with
+an unsupported existing purpose stops at the new constraint; inspect such IAM
+rows and resolve them through a reviewed owner-only correction before retrying.
 
 ## Bootstrap and migration
 
@@ -50,6 +59,14 @@ from an empty test project with a direct `update` to prove a fresh installation.
 The SQL check rejects a Patient role and verifies runtime schema/table scope.
 Real IAM API connectivity and real environment credentials require separate
 integration evidence; this fixture does not claim HU-IAM-001 is complete.
+
+For HU-IAM-004, run `tests/hu-iam-004.sql` after a fresh `update`. To verify an
+upgrade from the published three-changeset version, initialize an isolated test
+database from commit `b94c57a`, insert `tests/hu-iam-004-prior.sql`, apply the
+current changelog, then run `tests/hu-iam-004-upgrade.sql`,
+`tests/hu-iam-004.sql` and `tests/verify.sql`. The evidence and isolated Compose
+project names are in
+[HU-IAM-004 verification](tests/hu-iam-004-verification-2026-10-21.md).
 
 When implementing later changes, add SQL, reviewed rollback where applicable,
 and a change set in the matching folder's `changelog.yaml`. Never edit an
