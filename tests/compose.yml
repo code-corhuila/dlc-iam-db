@@ -9,6 +9,9 @@ services:
     volumes:
       - ../deploy/bootstrap.sql:/docker-entrypoint-initdb.d/001_iam_bootstrap.sql:ro
       - ./verify.sql:/checks/verify.sql:ro
+      - ./hu-iam-004.sql:/checks/hu-iam-004.sql:ro
+      - ./hu-iam-004-prior.sql:/checks/hu-iam-004-prior.sql:ro
+      - ./hu-iam-004-upgrade.sql:/checks/hu-iam-004-upgrade.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d di_lucca"]
       interval: 2s
