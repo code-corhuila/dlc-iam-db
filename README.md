@@ -13,6 +13,19 @@ unreferenced placeholders. The API remains responsible for authentication,
 atomic refresh rotation, eligibility checks, event payload minimization and
 publishing; a table alone does not prove those behaviors.
 
+HU-IAM-006 strengthens the existing session, refresh-family and hashed
+credential tables. A session's inactivity window and each refresh credential's
+lifetime are bounded at seven days; inactive or revoked sessions cannot have
+their activity window extended. Each family has one root credential;
+successors require an already consumed predecessor in that same family. Token
+hash and lineage fields cannot be rewritten, and consumption/revocation cannot
+be reset. Recording reuse revokes the family, session and remaining credentials;
+revoking a session also revokes its family. Device identifiers are optional but
+cannot be blank. The Auth API must hash incoming tokens, atomically rotate them,
+detect a replay before writing `reuse_detected_at`, authorize own-session reads
+and revocations, protect CSRF/cookies, emit approved events and reject revoked
+access on requests. These database safeguards do not replace that API logic.
+
 ## Bootstrap and migration
 
 `dlc-infra-postgres` supplies the shared engine at `dlc-postgres:5432`. A platform
@@ -50,6 +63,14 @@ from an empty test project with a direct `update` to prove a fresh installation.
 The SQL check rejects a Patient role and verifies runtime schema/table scope.
 Real IAM API connectivity and real environment credentials require separate
 integration evidence; this fixture does not claim HU-IAM-001 is complete.
+
+For HU-IAM-006, run `tests/hu-iam-006.sql` after an isolated fresh `update`.
+For an upgrade, apply published `origin/develop` at `b94c57a`, insert
+`tests/hu-iam-006-prior.sql`, apply this branch's changelog, then run
+`tests/hu-iam-006-upgrade.sql`, the lineage test and `tests/verify.sql`.
+See [HU-IAM-006 verification](tests/hu-iam-006-verification-2026-10-21.md).
+Existing records that violate the new limits or have multiple family roots
+stop the migration for owner review rather than being silently changed.
 
 When implementing later changes, add SQL, reviewed rollback where applicable,
 and a change set in the matching folder's `changelog.yaml`. Never edit an
