@@ -48,6 +48,9 @@ host port and uses trust authentication only inside its test network:
 The first command sequence proves an upgrade preserves a prior user. Repeat
 from an empty test project with a direct `update` to prove a fresh installation.
 The SQL check rejects a Patient role and verifies runtime schema/table scope.
+HU-IAM-002 adds append-only, runtime-scoped role assignment history without a
+second current-role table. Its isolated SQL and recovery results are recorded in
+`tests/verification-hu-iam-002.md`.
 Real IAM API connectivity and real environment credentials require separate
 integration evidence; this fixture does not claim HU-IAM-001 is complete.
 
