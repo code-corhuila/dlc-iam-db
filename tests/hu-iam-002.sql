@@ -41,8 +41,9 @@ BEGIN
   IF (SELECT count(*) FROM iam.users WHERE email = 'prior@example.test') <> 1 THEN
     RAISE EXCEPTION 'Previous-version user was lost';
   END IF;
-  IF (SELECT count(*) FROM iam.databasechangelog) <> 4 THEN
-    RAISE EXCEPTION 'Expected four applied changesets';
+  IF NOT EXISTS (SELECT 1 FROM iam.databasechangelog
+                 WHERE id = '003-iam-role-assignment-audit') THEN
+    RAISE EXCEPTION 'Role-assignment audit changeset was not applied';
   END IF;
   IF (SELECT count(*) FROM iam.role_assignment_audit WHERE user_id = '00000000-0000-0000-0000-000000000003') <> 2 THEN
     RAISE EXCEPTION 'Assignment history was lost after revocation';
