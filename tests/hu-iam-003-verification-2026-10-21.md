@@ -17,3 +17,13 @@ same transaction, and enforce revocation on requests. Those API behaviors and
 real environment credentials were not tested here. Legacy active accounts
 without verification or inconsistent revocation timestamps cause the new
 constraints to fail rather than being silently rewritten.
+
+## Integration after PRs #9 and #10 merged — 2026-10-22
+
+Resolved the README and test Compose conflicts against `develop` at `e5e7ee8`.
+An isolated fresh installation applied all six changesets; the HU-IAM-003 and
+HU-IAM-004 SQL checks and owner isolation check passed. A separate database
+started from that five-changeset `develop` revision, received the synthetic
+prior user and session, then applied only `004-iam-staff-lifecycle`. The
+previous records, lifecycle checks and owner isolation passed. Liquibase
+`validate` found no errors, and a repeat `update` applied zero changesets.

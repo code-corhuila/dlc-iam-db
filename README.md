@@ -6,7 +6,7 @@ The physical PostgreSQL database is shared by IAM, Patients, Appointments, and B
 
 This repository follows the accepted PostgreSQL architecture defined in ADR-007 and ADR-008. ADR-010 preserves the same database ownership boundaries for transversal integration.
 
-The first three Liquibase changesets create staff identity and approved roles,
+The initial Liquibase changesets create staff identity and approved roles,
 durable sessions, refresh families and credentials, single-purpose challenges,
 an owner outbox, and explicit runtime grants. Existing empty SQL files remain
 unreferenced placeholders. The API remains responsible for authentication,
@@ -23,6 +23,15 @@ Auth API must still authorize ordinary staff creation, restrict it to Dentist
 and Secretary Assistant, insert the audit entry and approved `SessionRevoked`
 outbox events in the same transaction, and enforce revoked access tokens.
 Database triggers do not replace those API and event responsibilities.
+
+The HU-IAM-004 change adds database guards for email-verification and
+password-recovery challenges: only these two purposes are accepted; expiry and
+consumption order are checked; consumed challenges cannot be changed or reused.
+The database stores a hash field, while the Auth API must prove that it hashes
+tokens before persistence. MFA challenges are outside this project under
+[ADR-016](https://github.com/code-corhuila/dlc-docs/blob/main/05-architecture/decisions/ADR-016-remove-mfa-from-project-scope.md). An upgrade with
+an unsupported existing purpose stops at the new constraint; inspect such IAM
+rows and resolve them through a reviewed owner-only correction before retrying.
 
 ## Bootstrap and migration
 
@@ -59,11 +68,14 @@ host port and uses trust authentication only inside its test network:
 The first command sequence proves an upgrade preserves a prior user. Repeat
 from an empty test project with a direct `update` to prove a fresh installation.
 The SQL check rejects a Patient role and verifies runtime schema/table scope.
+HU-IAM-002 adds append-only, runtime-scoped role assignment history without a
+second current-role table. Its isolated SQL and recovery results are recorded in
+`tests/verification-hu-iam-002.md`.
 Real IAM API connectivity and real environment credentials require separate
 integration evidence; this fixture does not claim HU-IAM-001 is complete.
 
 For HU-IAM-003, run `tests/hu-iam-003.sql` after an isolated fresh `update`.
-For an upgrade, apply the published `origin/develop` changelog at `b94c57a`
+For an upgrade, apply the published `develop` changelog at `e5e7ee8`
 to a disposable database, insert `tests/hu-iam-003-prior.sql`, apply this
 branch's changelog, then run `tests/hu-iam-003-upgrade.sql`, `tests/verify.sql`
 and the lifecycle test. See the
@@ -71,6 +83,14 @@ and the lifecycle test. See the
 The new active/verified constraint will stop an upgrade with inconsistent
 legacy accounts; review owner data before retrying rather than changing it
 silently.
+
+For HU-IAM-004, run `tests/hu-iam-004.sql` after a fresh `update`. To verify an
+upgrade from the published three-changeset version, initialize an isolated test
+database from commit `b94c57a`, insert `tests/hu-iam-004-prior.sql`, apply the
+current changelog, then run `tests/hu-iam-004-upgrade.sql`,
+`tests/hu-iam-004.sql` and `tests/verify.sql`. The evidence and isolated Compose
+project names are in
+[HU-IAM-004 verification](tests/hu-iam-004-verification-2026-10-21.md).
 
 When implementing later changes, add SQL, reviewed rollback where applicable,
 and a change set in the matching folder's `changelog.yaml`. Never edit an
