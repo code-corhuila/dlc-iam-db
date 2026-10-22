@@ -1,0 +1,83 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-iam-account-lock
+      author: dlc-iam-db
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE iam.users
+                ADD CONSTRAINT users_lock_state CHECK (
+                  (status = 'LOCKED' AND failed_attempts = 3
+                   AND locked_until IS NOT NULL AND locked_until > updated_at
+                   AND locked_until <= updated_at + interval '15 minutes')
+                  OR (status <> 'LOCKED' AND failed_attempts BETWEEN 0 AND 2
+                      AND locked_until IS NULL)
+                );
+              CREATE TABLE iam.account_lock_audit (
+                audit_id uuid PRIMARY KEY,
+                user_id uuid NOT NULL REFERENCES iam.users(user_id),
+                action text NOT NULL CHECK (action IN ('LOCKED', 'UNLOCKED')),
+                actor_user_id uuid REFERENCES iam.users(user_id),
+                failed_attempts integer NOT NULL CHECK (failed_attempts BETWEEN 0 AND 3),
+                locked_until timestamptz,
+                occurred_at timestamptz NOT NULL,
+                correlation_id uuid NOT NULL,
+                CONSTRAINT account_lock_audit_shape CHECK (
+                  (action = 'LOCKED' AND actor_user_id IS NULL
+                   AND failed_attempts = 3 AND locked_until IS NOT NULL
+                   AND locked_until > occurred_at)
+                  OR (action = 'UNLOCKED' AND actor_user_id IS NOT NULL
+                      AND failed_attempts = 0 AND locked_until IS NULL)
+                )
+              );
+              CREATE INDEX account_lock_audit_by_user
+                ON iam.account_lock_audit (user_id, occurred_at DESC);
+              GRANT SELECT, INSERT ON iam.account_lock_audit TO iam_runtime;
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE FUNCTION iam.guard_locked_session() RETURNS trigger
+              LANGUAGE plpgsql AS $$
+              BEGIN
+                PERFORM 1 FROM iam.users WHERE user_id = NEW.user_id
+                  AND status = 'LOCKED' FOR SHARE;
+                IF FOUND THEN
+                  RAISE EXCEPTION 'A locked account cannot start a session';
+                END IF;
+                RETURN NEW;
+              END;
+              $$;
+              REVOKE ALL ON FUNCTION iam.guard_locked_session() FROM PUBLIC;
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE FUNCTION iam.revoke_locked_staff_sessions() RETURNS trigger
+              LANGUAGE plpgsql AS $$
+              DECLARE revoked_at_now timestamptz := statement_timestamp();
+              BEGIN
+                IF OLD.status <> 'LOCKED' AND NEW.status = 'LOCKED' THEN
+                  UPDATE iam.sessions SET revoked_at = revoked_at_now,
+                      revocation_reason = 'ACCOUNT_LOCKED'
+                    WHERE user_id = NEW.user_id AND revoked_at IS NULL;
+                  UPDATE iam.refresh_token_families AS f SET revoked_at = revoked_at_now
+                    FROM iam.sessions AS s
+                    WHERE f.session_id = s.session_id AND s.user_id = NEW.user_id
+                      AND f.revoked_at IS NULL;
+                  UPDATE iam.refresh_credentials AS c SET revoked_at = revoked_at_now
+                    FROM iam.refresh_token_families AS f
+                    JOIN iam.sessions AS s ON s.session_id = f.session_id
+                    WHERE c.family_id = f.family_id AND s.user_id = NEW.user_id
+                      AND c.revoked_at IS NULL;
+                END IF;
+                RETURN NEW;
+              END;
+              $$;
+              REVOKE ALL ON FUNCTION iam.revoke_locked_staff_sessions() FROM PUBLIC;
+        - sql:
+            sql: |
+              CREATE TRIGGER guard_locked_session
+                BEFORE INSERT ON iam.sessions FOR EACH ROW
+                EXECUTE FUNCTION iam.guard_locked_session();
+              CREATE TRIGGER revoke_locked_staff_sessions
+                AFTER UPDATE OF status ON iam.users FOR EACH ROW
+                EXECUTE FUNCTION iam.revoke_locked_staff_sessions();

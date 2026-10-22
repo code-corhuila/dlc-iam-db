@@ -8,7 +8,9 @@ BEGIN
          AND reuse_detected_at IS NULL) <> 1
      OR (SELECT count(*) FROM iam.refresh_credentials WHERE credential_id='00000000-0000-0000-0000-000000000084'
          AND token_hash=repeat('e',64)) <> 1
-     OR (SELECT count(*) FROM iam.databasechangelog) <> 4 THEN
+     OR (SELECT count(*) FROM iam.databasechangelog
+         WHERE id IN ('001-iam-identity', '002-iam-session-security',
+                      '001-iam-runtime-grants', '007-iam-session-lineage')) <> 4 THEN
     RAISE EXCEPTION 'Previous-version session, refresh lineage or history changed';
   END IF;
 END $$;

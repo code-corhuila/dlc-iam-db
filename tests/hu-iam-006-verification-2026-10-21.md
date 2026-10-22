@@ -15,3 +15,11 @@ authorize own-session operations, secure CSRF/cookies, publish approved events
 and enforce access-token revocation. These provider behaviors were not tested.
 Legacy data violating the new limits or single-root rule stops migration for
 owner review; no rows are silently rewritten.
+
+## Integration with current develop — 2026-10-22
+
+Against `develop` at `47332a7`, a fresh store applied eight changesets and
+the HU-IAM-006/005/003/004 SQL and owner checks passed. An isolated upgrade
+from its seven changesets preserved a prior user, session, family and hashed
+credential; only `007-iam-session-lineage` was added. The lineage and owner
+checks passed, `validate` found no errors, and a repeat `update` applied zero.
