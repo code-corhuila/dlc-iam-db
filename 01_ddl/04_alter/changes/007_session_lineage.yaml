@@ -1,0 +1,166 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-iam-session-lineage
+      author: dlc-iam-db
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE iam.sessions
+                ADD CONSTRAINT session_inactivity_window
+                  CHECK (inactivity_expires_at <= last_user_activity_at + interval '7 days'),
+                ADD CONSTRAINT session_device_nonempty
+                  CHECK (device_id IS NULL OR length(btrim(device_id)) > 0);
+              ALTER TABLE iam.refresh_token_families
+                ADD CONSTRAINT family_reuse_order
+                  CHECK (reuse_detected_at IS NULL OR reuse_detected_at >= created_at),
+                ADD CONSTRAINT family_revocation_order
+                  CHECK (revoked_at IS NULL OR revoked_at >= created_at);
+              ALTER TABLE iam.refresh_credentials
+                ADD CONSTRAINT credential_lifetime
+                  CHECK (expires_at <= issued_at + interval '7 days'),
+                ADD CONSTRAINT credential_consumption_order
+                  CHECK (consumed_at IS NULL OR (consumed_at >= issued_at AND consumed_at < expires_at)),
+                ADD CONSTRAINT credential_revocation_order
+                  CHECK (revoked_at IS NULL OR revoked_at >= issued_at);
+              CREATE UNIQUE INDEX refresh_family_single_root
+                ON iam.refresh_credentials (family_id) WHERE predecessor_id IS NULL;
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE FUNCTION iam.guard_session_activity() RETURNS trigger
+              LANGUAGE plpgsql AS $$
+              BEGIN
+                IF OLD.revoked_at IS NOT NULL OR OLD.inactivity_expires_at <= statement_timestamp() THEN
+                  RAISE EXCEPTION 'Revoked or inactive session cannot be extended';
+                END IF;
+                IF NEW.last_user_activity_at < OLD.last_user_activity_at
+                   OR (NEW.inactivity_expires_at > OLD.inactivity_expires_at
+                       AND NEW.last_user_activity_at <= OLD.last_user_activity_at) THEN
+                  RAISE EXCEPTION 'Session activity must advance before extending expiry';
+                END IF;
+                RETURN NEW;
+              END;
+              $$;
+              REVOKE ALL ON FUNCTION iam.guard_session_activity() FROM PUBLIC;
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE FUNCTION iam.guard_refresh_credential() RETURNS trigger
+              LANGUAGE plpgsql AS $$
+              DECLARE check_eligibility boolean := false;
+              BEGIN
+                IF TG_OP = 'INSERT' THEN
+                  check_eligibility := true;
+                ELSE
+                  IF ROW(NEW.credential_id, NEW.family_id, NEW.token_hash,
+                         NEW.predecessor_id, NEW.issued_at, NEW.expires_at)
+                     IS DISTINCT FROM
+                     ROW(OLD.credential_id, OLD.family_id, OLD.token_hash,
+                         OLD.predecessor_id, OLD.issued_at, OLD.expires_at) THEN
+                    RAISE EXCEPTION 'Refresh lineage and hash are immutable';
+                  END IF;
+                  IF (OLD.consumed_at IS NOT NULL AND NEW.consumed_at IS DISTINCT FROM OLD.consumed_at)
+                     OR (OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS DISTINCT FROM OLD.revoked_at) THEN
+                    RAISE EXCEPTION 'Refresh consumption and revocation cannot be reset';
+                  END IF;
+                  IF OLD.consumed_at IS NULL AND NEW.consumed_at IS NOT NULL
+                     AND (OLD.expires_at <= statement_timestamp() OR OLD.revoked_at IS NOT NULL) THEN
+                    RAISE EXCEPTION 'Expired or revoked refresh credential cannot be consumed';
+                  END IF;
+                  check_eligibility := OLD.consumed_at IS NULL AND NEW.consumed_at IS NOT NULL;
+                END IF;
+                IF check_eligibility THEN
+                  PERFORM 1 FROM iam.refresh_token_families AS f
+                    JOIN iam.sessions AS s ON s.session_id = f.session_id
+                    WHERE f.family_id = NEW.family_id AND f.revoked_at IS NULL
+                      AND s.revoked_at IS NULL AND s.inactivity_expires_at > statement_timestamp()
+                    FOR SHARE OF f, s;
+                  IF NOT FOUND THEN
+                    RAISE EXCEPTION 'Refresh family or session is ineligible';
+                  END IF;
+                END IF;
+                IF TG_OP = 'INSERT' AND NEW.predecessor_id IS NOT NULL THEN
+                  PERFORM 1 FROM iam.refresh_credentials AS p
+                    WHERE p.family_id = NEW.family_id AND p.credential_id = NEW.predecessor_id
+                      AND p.consumed_at IS NOT NULL AND p.revoked_at IS NULL
+                      AND p.expires_at > statement_timestamp()
+                    FOR UPDATE;
+                  IF NOT FOUND THEN
+                    RAISE EXCEPTION 'Refresh predecessor was not consumed or is ineligible';
+                  END IF;
+                END IF;
+                RETURN NEW;
+              END;
+              $$;
+              REVOKE ALL ON FUNCTION iam.guard_refresh_credential() FROM PUBLIC;
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE FUNCTION iam.guard_refresh_family() RETURNS trigger
+              LANGUAGE plpgsql AS $$
+              BEGIN
+                IF OLD.reuse_detected_at IS NOT NULL
+                   AND NEW.reuse_detected_at IS DISTINCT FROM OLD.reuse_detected_at THEN
+                  RAISE EXCEPTION 'Refresh reuse evidence cannot be reset';
+                END IF;
+                IF OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS DISTINCT FROM OLD.revoked_at THEN
+                  RAISE EXCEPTION 'Refresh family revocation cannot be reset';
+                END IF;
+                IF OLD.reuse_detected_at IS NULL AND NEW.reuse_detected_at IS NOT NULL THEN
+                  NEW.revoked_at := COALESCE(NEW.revoked_at, statement_timestamp());
+                END IF;
+                RETURN NEW;
+              END;
+              $$;
+              REVOKE ALL ON FUNCTION iam.guard_refresh_family() FROM PUBLIC;
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE FUNCTION iam.cascade_refresh_revocation() RETURNS trigger
+              LANGUAGE plpgsql AS $$
+              BEGIN
+                IF OLD.revoked_at IS NULL AND NEW.revoked_at IS NOT NULL THEN
+                  UPDATE iam.sessions SET revoked_at = NEW.revoked_at,
+                      revocation_reason = CASE WHEN NEW.reuse_detected_at IS NOT NULL
+                        THEN 'REFRESH_REUSE' ELSE 'FAMILY_REVOKED' END
+                    WHERE session_id = NEW.session_id AND revoked_at IS NULL;
+                  UPDATE iam.refresh_credentials SET revoked_at = NEW.revoked_at
+                    WHERE family_id = NEW.family_id AND revoked_at IS NULL;
+                END IF;
+                RETURN NEW;
+              END;
+              $$;
+              REVOKE ALL ON FUNCTION iam.cascade_refresh_revocation() FROM PUBLIC;
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE FUNCTION iam.cascade_session_revocation() RETURNS trigger
+              LANGUAGE plpgsql AS $$
+              BEGIN
+                IF OLD.revoked_at IS NULL AND NEW.revoked_at IS NOT NULL THEN
+                  UPDATE iam.refresh_token_families SET revoked_at = NEW.revoked_at
+                    WHERE session_id = NEW.session_id AND revoked_at IS NULL;
+                ELSIF OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS DISTINCT FROM OLD.revoked_at THEN
+                  RAISE EXCEPTION 'Session revocation cannot be reset';
+                END IF;
+                RETURN NEW;
+              END;
+              $$;
+              REVOKE ALL ON FUNCTION iam.cascade_session_revocation() FROM PUBLIC;
+        - sql:
+            sql: |
+              CREATE TRIGGER guard_session_activity
+                BEFORE UPDATE OF last_user_activity_at, inactivity_expires_at ON iam.sessions FOR EACH ROW
+                EXECUTE FUNCTION iam.guard_session_activity();
+              CREATE TRIGGER guard_refresh_credential
+                BEFORE INSERT OR UPDATE ON iam.refresh_credentials FOR EACH ROW
+                EXECUTE FUNCTION iam.guard_refresh_credential();
+              CREATE TRIGGER guard_refresh_family
+                BEFORE UPDATE ON iam.refresh_token_families FOR EACH ROW
+                EXECUTE FUNCTION iam.guard_refresh_family();
+              CREATE TRIGGER cascade_refresh_revocation
+                AFTER UPDATE OF revoked_at, reuse_detected_at ON iam.refresh_token_families FOR EACH ROW
+                EXECUTE FUNCTION iam.cascade_refresh_revocation();
+              CREATE TRIGGER cascade_session_revocation
+                AFTER UPDATE OF revoked_at ON iam.sessions FOR EACH ROW
+                EXECUTE FUNCTION iam.cascade_session_revocation();
