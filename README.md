@@ -33,6 +33,17 @@ tokens before persistence. MFA challenges are outside this project under
 an unsupported existing purpose stops at the new constraint; inspect such IAM
 rows and resolve them through a reviewed owner-only correction before retrying.
 
+HU-IAM-005 retains the existing IAM-owned `failed_attempts`, `status` and
+`locked_until` columns. The new lock constraint requires a third failure to
+carry a bounded expiry, and an append-only `account_lock_audit` table records
+lock/unlock facts with a correlation ID and no IP address or raw credential.
+Locking an account atomically revokes its existing IAM sessions and refresh
+records; a locked account cannot start another session. The Auth API still
+owns atomic failure counting, exact 15-minute lock policy, the 10-attempts/IP
+rate limit, authorized unlock, generic login errors and approved `UserLocked`
+and `UserUnlocked` outbox events. MFA is outside the project under
+[ADR-016](https://github.com/code-corhuila/dlc-docs/blob/main/05-architecture/decisions/ADR-016-remove-mfa-from-project-scope.md).
+
 ## Bootstrap and migration
 
 `dlc-infra-postgres` supplies the shared engine at `dlc-postgres:5432`. A platform
@@ -91,6 +102,14 @@ current changelog, then run `tests/hu-iam-004-upgrade.sql`,
 `tests/hu-iam-004.sql` and `tests/verify.sql`. The evidence and isolated Compose
 project names are in
 [HU-IAM-004 verification](tests/hu-iam-004-verification-2026-10-21.md).
+
+For HU-IAM-005, run `tests/hu-iam-005.sql` after an isolated fresh `update`.
+For an upgrade, apply published `develop` at `ca0c8c2`, insert
+`tests/hu-iam-005-prior.sql`, apply this branch's changelog, then run
+`tests/hu-iam-005-upgrade.sql`, the lock test and `tests/verify.sql`. See
+[HU-IAM-005 verification](tests/hu-iam-005-verification-2026-10-21.md).
+Inconsistent legacy lock rows stop the migration for owner review; no IAM
+data is silently rewritten.
 
 When implementing later changes, add SQL, reviewed rollback where applicable,
 and a change set in the matching folder's `changelog.yaml`. Never edit an
