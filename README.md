@@ -13,6 +13,17 @@ unreferenced placeholders. The API remains responsible for authentication,
 atomic refresh rotation, eligibility checks, event payload minimization and
 publishing; a table alone does not prove those behaviors.
 
+HU-IAM-003 keeps the existing unique normalized staff email and account status
+as the IAM source of truth. A new append-only `staff_account_audit` table records
+the actor, status transition and correlation ID without copying email or password
+data. A verified active account is required when a session row is created.
+Disabling an account atomically marks its existing sessions, refresh families
+and refresh credentials revoked; re-enabling never revives those records. The
+Auth API must still authorize ordinary staff creation, restrict it to Dentist
+and Secretary Assistant, insert the audit entry and approved `SessionRevoked`
+outbox events in the same transaction, and enforce revoked access tokens.
+Database triggers do not replace those API and event responsibilities.
+
 The HU-IAM-004 change adds database guards for email-verification and
 password-recovery challenges: only these two purposes are accepted; expiry and
 consumption order are checked; consumed challenges cannot be changed or reused.
@@ -62,6 +73,16 @@ second current-role table. Its isolated SQL and recovery results are recorded in
 `tests/verification-hu-iam-002.md`.
 Real IAM API connectivity and real environment credentials require separate
 integration evidence; this fixture does not claim HU-IAM-001 is complete.
+
+For HU-IAM-003, run `tests/hu-iam-003.sql` after an isolated fresh `update`.
+For an upgrade, apply the published `develop` changelog at `e5e7ee8`
+to a disposable database, insert `tests/hu-iam-003-prior.sql`, apply this
+branch's changelog, then run `tests/hu-iam-003-upgrade.sql`, `tests/verify.sql`
+and the lifecycle test. See the
+[HU-IAM-003 verification](tests/hu-iam-003-verification-2026-10-21.md).
+The new active/verified constraint will stop an upgrade with inconsistent
+legacy accounts; review owner data before retrying rather than changing it
+silently.
 
 For HU-IAM-004, run `tests/hu-iam-004.sql` after a fresh `update`. To verify an
 upgrade from the published three-changeset version, initialize an isolated test
