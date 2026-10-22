@@ -15,6 +15,9 @@ services:
       - ./hu-iam-004.sql:/checks/hu-iam-004.sql:ro
       - ./hu-iam-004-prior.sql:/checks/hu-iam-004-prior.sql:ro
       - ./hu-iam-004-upgrade.sql:/checks/hu-iam-004-upgrade.sql:ro
+      - ./hu-iam-005.sql:/checks/hu-iam-005.sql:ro
+      - ./hu-iam-005-prior.sql:/checks/hu-iam-005-prior.sql:ro
+      - ./hu-iam-005-upgrade.sql:/checks/hu-iam-005-upgrade.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d di_lucca"]
       interval: 2s
