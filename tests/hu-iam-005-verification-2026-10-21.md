@@ -17,3 +17,13 @@ unlock, write audit and approved outbox events, and use generic login errors.
 Those behaviors and live session enforcement were not tested here. Inconsistent
 legacy lock rows cause migration failure for owner review; no data is silently
 rewritten. MFA remains outside this project under ADR-016.
+
+## Integration after PRs #9–#11 merged — 2026-10-22
+
+Resolved the README and test Compose conflicts against `develop` at `ca0c8c2`.
+An isolated fresh installation applied seven changesets; HU-IAM-005,
+HU-IAM-003 and HU-IAM-004 SQL checks and owner isolation passed. Another
+database started with the six published `develop` changesets, received a
+synthetic prior user and session, then applied only `006-iam-account-lock`.
+The prior records, account-lock checks and owner isolation passed. Liquibase
+`validate` found no errors; a repeat `update` applied zero changesets.

@@ -1,0 +1,19 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-iam-role-assignment-audit
+      author: dlc-iam-db
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE iam.role_assignment_audit (
+                audit_id uuid PRIMARY KEY,
+                user_id uuid NOT NULL REFERENCES iam.users(user_id),
+                role text NOT NULL CHECK (role IN ('ADMINISTRATOR', 'DENTIST', 'SECRETARY_ASSISTANT')),
+                action text NOT NULL CHECK (action IN ('ASSIGNED', 'REVOKED')),
+                actor_user_id uuid NOT NULL REFERENCES iam.users(user_id),
+                occurred_at timestamptz NOT NULL,
+                correlation_id uuid NOT NULL
+              );
+              CREATE INDEX role_assignment_audit_by_user
+                ON iam.role_assignment_audit (user_id, occurred_at DESC);
+              GRANT SELECT, INSERT ON iam.role_assignment_audit TO iam_runtime;
