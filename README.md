@@ -22,6 +22,12 @@ API can return its complete `Staff` contract. This migration changes only the
 `iam` schema; its empty-store and previous-version checks are recorded in
 `tests/verification-staff-display-name.md`.
 
+The additive `009-iam-login-ip-attempts` migration supports the five-minute
+login limit. It stores a 32-byte keyed IP digest and an attempt time under IAM
+ownership. The API remains responsible for trusted client-IP selection,
+atomic window enforcement and retention; the table alone does not impose a
+rate limit. Verification is in `tests/verification-login-ip-attempts.md`.
+
 HU-IAM-003 keeps the existing unique normalized staff email and account status
 as the IAM source of truth. A new append-only `staff_account_audit` table records
 the actor, status transition and correlation ID without copying email or password
