@@ -13,6 +13,15 @@ unreferenced placeholders. The API remains responsible for authentication,
 atomic refresh rotation, eligibility checks, event payload minimization and
 publishing; a table alone does not prove those behaviors.
 
+The additive `008-iam-staff-display-name` migration supplies the `name`
+required by the approved Auth `Staff` response as `iam.users.display_name`.
+New staff creation must save a trimmed name of 1–100 characters. The column is
+nullable for pre-existing rows so upgrades do not invent personal data or
+rewrite staff identity. Owners must backfill any existing account before the
+API can return its complete `Staff` contract. This migration changes only the
+`iam` schema; its empty-store and previous-version checks are recorded in
+`tests/verification-staff-display-name.md`.
+
 HU-IAM-003 keeps the existing unique normalized staff email and account status
 as the IAM source of truth. A new append-only `staff_account_audit` table records
 the actor, status transition and correlation ID without copying email or password
