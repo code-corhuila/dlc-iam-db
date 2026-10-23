@@ -1,0 +1,23 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010-iam-expired-lock-audit
+      author: dlc-iam-db
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE iam.account_lock_audit
+                ADD COLUMN unlock_source text;
+              ALTER TABLE iam.account_lock_audit
+                DROP CONSTRAINT account_lock_audit_shape,
+                ADD CONSTRAINT account_lock_audit_shape CHECK (
+                  (action = 'LOCKED' AND actor_user_id IS NULL
+                   AND failed_attempts = 3 AND locked_until IS NOT NULL
+                   AND locked_until > occurred_at AND unlock_source IS NULL)
+                  OR (action = 'UNLOCKED' AND failed_attempts = 0
+                      AND locked_until IS NULL AND (
+                        (actor_user_id IS NOT NULL AND
+                         (unlock_source IS NULL OR unlock_source = 'ADMINISTRATOR'))
+                        OR (actor_user_id IS NULL AND
+                            unlock_source IS NOT DISTINCT FROM 'EXPIRY')
+                      ))
+                );
