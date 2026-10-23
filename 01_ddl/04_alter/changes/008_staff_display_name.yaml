@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-iam-staff-display-name
+      author: dlc-iam-db
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE iam.users
+                ADD COLUMN display_name text,
+                ADD CONSTRAINT users_display_name_valid CHECK (
+                  display_name IS NULL OR (
+                    length(btrim(display_name)) BETWEEN 1 AND 100
+                    AND display_name = btrim(display_name)
+                  )
+                );
