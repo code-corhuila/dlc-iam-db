@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-iam-login-ip-attempts
+      author: dlc-iam-db
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE iam.login_ip_attempts (
+                attempt_id uuid PRIMARY KEY,
+                ip_digest bytea NOT NULL CHECK (length(ip_digest) = 32),
+                occurred_at timestamptz NOT NULL
+              );
+              CREATE INDEX login_ip_attempts_window
+                ON iam.login_ip_attempts (ip_digest, occurred_at DESC);
+              CREATE INDEX login_ip_attempts_retention
+                ON iam.login_ip_attempts (occurred_at);
+              GRANT SELECT, INSERT, DELETE ON iam.login_ip_attempts TO iam_runtime;
