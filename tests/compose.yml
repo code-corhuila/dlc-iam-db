@@ -24,6 +24,7 @@ services:
       - ./service-clients.sql:/checks/service-clients.sql:ro
       - ./hu-iam-staff-name.sql:/checks/hu-iam-staff-name.sql:ro
       - ./hu-iam-login-ip-attempts.sql:/checks/hu-iam-login-ip-attempts.sql:ro
+      - ./hu-iam-expired-lock-audit.sql:/checks/hu-iam-expired-lock-audit.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d di_lucca"]
       interval: 2s
