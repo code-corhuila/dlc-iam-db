@@ -1,0 +1,29 @@
+databaseChangeLog:
+  - changeSet:
+      id: 011-iam-session-version
+      author: dlc-iam-db
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE iam.sessions
+                ADD COLUMN version bigint NOT NULL DEFAULT 1
+                  CHECK (version >= 1);
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE FUNCTION iam.advance_session_version() RETURNS trigger
+              LANGUAGE plpgsql AS $$
+              BEGIN
+                IF NEW.version IS DISTINCT FROM OLD.version THEN
+                  RAISE EXCEPTION 'Session version is managed by IAM';
+                END IF;
+                NEW.version := OLD.version + 1;
+                RETURN NEW;
+              END;
+              $$;
+              REVOKE ALL ON FUNCTION iam.advance_session_version() FROM PUBLIC;
+        - sql:
+            sql: |
+              CREATE TRIGGER advance_session_version
+                BEFORE UPDATE ON iam.sessions FOR EACH ROW
+                EXECUTE FUNCTION iam.advance_session_version();
