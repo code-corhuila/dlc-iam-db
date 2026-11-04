@@ -21,6 +21,7 @@ services:
       - ./hu-iam-006.sql:/checks/hu-iam-006.sql:ro
       - ./hu-iam-006-prior.sql:/checks/hu-iam-006-prior.sql:ro
       - ./hu-iam-006-upgrade.sql:/checks/hu-iam-006-upgrade.sql:ro
+      - ./hu-iam-staff-name.sql:/checks/hu-iam-staff-name.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d di_lucca"]
       interval: 2s
