@@ -151,17 +151,28 @@ When implementing later changes, add SQL, reviewed rollback where applicable,
 and a change set in the matching folder's `changelog.yaml`. Never edit an
 applied change set. Production recovery uses a forward corrective migration.
 
-IAM service clients (ADR-020) live in `iam.service_clients`, `iam.service_client_secrets`
-(two hashed-secret slots per client for rotation) and `iam.service_client_grants` (one row
-per audience and single scope). The runtime role only reads them; the platform operator
-provisions clients, secrets and grants. To verify, apply this branch on a fresh disposable
-database and run `tests/service-clients.sql`. A repeat update must apply zero changesets.
 IAM identity-email issuance uses `iam.identity_email_limits` for shared IP/email-digest
 windows and cooldowns. Only HMAC digests are stored; the API owns the limits and
 normalization rules. Validate the additive migration on an empty IAM database and
 from the previous 15-change-set revision, then run `tests/identity-email-limits.sql`
 against the disposable database. This table does not store email addresses, IPs,
 tokens or email messages.
+
+IAM business events retain delivery attempts, their next due time and a terminal
+reconciliation timestamp in `iam.outbox_events`. Unpublished rows from the previous
+revision are backfilled to their original occurrence time. The API publisher will
+advance these fields; a broker outage never reverses the owner transaction. To
+verify, apply this branch on a fresh disposable database and run
+`tests/outbox-delivery-state.sql`. For an upgrade, apply the previous 16-change-set
+revision, insert `tests/outbox-delivery-prior.sql`, apply this branch, then run
+`tests/outbox-delivery-upgrade.sql` and `tests/verify.sql`. A repeat update must
+apply zero changesets. Rows requiring reconciliation stay in IAM for operator review.
+
+IAM service clients (ADR-020) live in `iam.service_clients`, `iam.service_client_secrets`
+(two hashed-secret slots per client for rotation) and `iam.service_client_grants` (one row
+per audience and single scope). The runtime role only reads them; the platform operator
+provisions clients, secrets and grants. To verify, apply this branch on a fresh disposable
+database and run `tests/service-clients.sql`. A repeat update must apply zero changesets.
 
 The repository's existing `.github/CODEOWNERS` and professor-managed `env-tracking.yml` must be preserved when this skeleton is copied into the real repository.
 
