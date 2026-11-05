@@ -14,29 +14,42 @@ VALUES
    'REGISTERED','00000000-0000-0000-0000-000000000401',NULL,'PENDING_VERIFICATION',
    now(),'00000000-0000-0000-0000-000000000404');
 INSERT INTO iam.registration_requests
-  (idempotency_key,actor_user_id,user_id,request_proof,created_at)
+  (idempotency_key,actor_user_id,user_id,request_proof,normalized_email,
+   display_name,initial_role,created_at)
 VALUES
   ('00000000-0000-0000-0000-000000000405','00000000-0000-0000-0000-000000000401',
-   '00000000-0000-0000-0000-000000000402',decode(repeat('ab',32),'hex'),now());
+   '00000000-0000-0000-0000-000000000402',decode(repeat('ab',32),'hex'),
+   'registration-staff@example.test','Registered Staff','DENTIST',now());
+UPDATE iam.users SET display_name='Changed Later', version=2,
+  updated_at=now() WHERE user_id='00000000-0000-0000-0000-000000000402';
 DO $$
 BEGIN
   IF (SELECT count(*) FROM iam.registration_requests
       WHERE idempotency_key='00000000-0000-0000-0000-000000000405'
-        AND octet_length(request_proof)=32) <> 1 THEN
+        AND octet_length(request_proof)=32
+        AND normalized_email='registration-staff@example.test'
+        AND display_name='Registered Staff' AND initial_role='DENTIST'
+        AND initial_status='PENDING_VERIFICATION' AND initial_version=1) <> 1 THEN
     RAISE EXCEPTION 'Registration replay record missing';
   END IF;
   BEGIN
-    INSERT INTO iam.registration_requests VALUES
+    INSERT INTO iam.registration_requests
+      (idempotency_key,actor_user_id,user_id,request_proof,normalized_email,
+       display_name,initial_role,created_at) VALUES
       ('00000000-0000-0000-0000-000000000405',
        '00000000-0000-0000-0000-000000000401',
-       '00000000-0000-0000-0000-000000000402',decode(repeat('cd',32),'hex'),now());
+       '00000000-0000-0000-0000-000000000402',decode(repeat('cd',32),'hex'),
+       'registration-staff@example.test','Registered Staff','DENTIST',now());
     RAISE EXCEPTION 'Duplicate key accepted';
   EXCEPTION WHEN unique_violation THEN NULL;
   END;
   BEGIN
-    INSERT INTO iam.registration_requests VALUES
+    INSERT INTO iam.registration_requests
+      (idempotency_key,actor_user_id,user_id,request_proof,normalized_email,
+       display_name,initial_role,created_at) VALUES
       (gen_random_uuid(),'00000000-0000-0000-0000-000000000401',
-       '00000000-0000-0000-0000-000000000402',decode('ff','hex'),now());
+       '00000000-0000-0000-0000-000000000402',decode('ff','hex'),
+       'registration-staff@example.test','Registered Staff','DENTIST',now());
     RAISE EXCEPTION 'Short proof accepted';
   EXCEPTION WHEN check_violation THEN NULL;
   END;
