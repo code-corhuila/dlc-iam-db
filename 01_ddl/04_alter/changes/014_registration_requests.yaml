@@ -10,9 +10,24 @@ databaseChangeLog:
                 actor_user_id uuid NOT NULL REFERENCES iam.users(user_id),
                 user_id uuid NOT NULL UNIQUE REFERENCES iam.users(user_id),
                 request_proof bytea NOT NULL,
+                normalized_email text NOT NULL,
+                display_name text NOT NULL,
+                initial_role text NOT NULL,
+                initial_status text NOT NULL DEFAULT 'PENDING_VERIFICATION',
+                initial_version bigint NOT NULL DEFAULT 1,
                 created_at timestamptz NOT NULL,
                 CONSTRAINT registration_request_proof_length
-                  CHECK (octet_length(request_proof) = 32)
+                  CHECK (octet_length(request_proof) = 32),
+                CONSTRAINT registration_request_email_normalized
+                  CHECK (normalized_email = lower(btrim(normalized_email))
+                    AND length(normalized_email) BETWEEN 3 AND 255),
+                CONSTRAINT registration_request_name_valid
+                  CHECK (length(btrim(display_name)) BETWEEN 1 AND 100
+                    AND display_name = btrim(display_name)),
+                CONSTRAINT registration_request_role_valid
+                  CHECK (initial_role IN ('DENTIST', 'SECRETARY_ASSISTANT')),
+                CONSTRAINT registration_request_initial_state
+                  CHECK (initial_status = 'PENDING_VERIFICATION' AND initial_version = 1)
               );
               CREATE INDEX registration_requests_by_actor
                 ON iam.registration_requests (actor_user_id, created_at DESC);
