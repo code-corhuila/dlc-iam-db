@@ -21,6 +21,7 @@ services:
       - ./hu-iam-006.sql:/checks/hu-iam-006.sql:ro
       - ./hu-iam-006-prior.sql:/checks/hu-iam-006-prior.sql:ro
       - ./hu-iam-006-upgrade.sql:/checks/hu-iam-006-upgrade.sql:ro
+      - ./identity-email-limits.sql:/checks/identity-email-limits.sql:ro
       - ./hu-iam-staff-name.sql:/checks/hu-iam-staff-name.sql:ro
       - ./hu-iam-login-ip-attempts.sql:/checks/hu-iam-login-ip-attempts.sql:ro
       - ./hu-iam-expired-lock-audit.sql:/checks/hu-iam-expired-lock-audit.sql:ro

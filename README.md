@@ -151,6 +151,13 @@ When implementing later changes, add SQL, reviewed rollback where applicable,
 and a change set in the matching folder's `changelog.yaml`. Never edit an
 applied change set. Production recovery uses a forward corrective migration.
 
+IAM identity-email issuance uses `iam.identity_email_limits` for shared IP/email-digest
+windows and cooldowns. Only HMAC digests are stored; the API owns the limits and
+normalization rules. Validate the additive migration on an empty IAM database and
+from the previous 15-change-set revision, then run `tests/identity-email-limits.sql`
+against the disposable database. This table does not store email addresses, IPs,
+tokens or email messages.
+
 The repository's existing `.github/CODEOWNERS` and professor-managed `env-tracking.yml` must be preserved when this skeleton is copied into the real repository.
 
 ## Governance
