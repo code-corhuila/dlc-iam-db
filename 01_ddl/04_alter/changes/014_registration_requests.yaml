@@ -1,0 +1,19 @@
+databaseChangeLog:
+  - changeSet:
+      id: 014-iam-registration-requests
+      author: dlc-iam-db
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE iam.registration_requests (
+                idempotency_key uuid PRIMARY KEY,
+                actor_user_id uuid NOT NULL REFERENCES iam.users(user_id),
+                user_id uuid NOT NULL UNIQUE REFERENCES iam.users(user_id),
+                request_proof bytea NOT NULL,
+                created_at timestamptz NOT NULL,
+                CONSTRAINT registration_request_proof_length
+                  CHECK (octet_length(request_proof) = 32)
+              );
+              CREATE INDEX registration_requests_by_actor
+                ON iam.registration_requests (actor_user_id, created_at DESC);
+              GRANT SELECT, INSERT ON iam.registration_requests TO iam_runtime;
