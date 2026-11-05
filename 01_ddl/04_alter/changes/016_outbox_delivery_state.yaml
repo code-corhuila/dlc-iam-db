@@ -1,0 +1,24 @@
+databaseChangeLog:
+  - changeSet:
+      id: 016-iam-outbox-delivery-state
+      author: dlc-iam-db
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE iam.outbox_events
+                ADD COLUMN delivery_attempts integer NOT NULL DEFAULT 0
+                  CHECK (delivery_attempts BETWEEN 0 AND 10),
+                ADD COLUMN next_delivery_at timestamptz DEFAULT statement_timestamp(),
+                ADD COLUMN last_delivery_failure_at timestamptz,
+                ADD COLUMN reconciliation_required_at timestamptz;
+              UPDATE iam.outbox_events SET next_delivery_at = occurred_at;
+              ALTER TABLE iam.outbox_events
+                ALTER COLUMN next_delivery_at SET NOT NULL,
+                ADD CONSTRAINT outbox_delivery_terminal_state
+                  CHECK (published_at IS NULL OR reconciliation_required_at IS NULL),
+                ADD CONSTRAINT outbox_reconciliation_after_retries
+                  CHECK (reconciliation_required_at IS NULL OR delivery_attempts = 10);
+              DROP INDEX iam.outbox_events_pending;
+              CREATE INDEX outbox_events_due
+                ON iam.outbox_events (next_delivery_at, occurred_at, event_id)
+                WHERE published_at IS NULL AND reconciliation_required_at IS NULL;
