@@ -158,6 +158,16 @@ from the previous 15-change-set revision, then run `tests/identity-email-limits.
 against the disposable database. This table does not store email addresses, IPs,
 tokens or email messages.
 
+IAM business events retain delivery attempts, their next due time and a terminal
+reconciliation timestamp in `iam.outbox_events`. Unpublished rows from the previous
+revision are backfilled to their original occurrence time. The API publisher will
+advance these fields; a broker outage never reverses the owner transaction. To
+verify, apply this branch on a fresh disposable database and run
+`tests/outbox-delivery-state.sql`. For an upgrade, apply the previous 16-change-set
+revision, insert `tests/outbox-delivery-prior.sql`, apply this branch, then run
+`tests/outbox-delivery-upgrade.sql` and `tests/verify.sql`. A repeat update must
+apply zero changesets. Rows requiring reconciliation stay in IAM for operator review.
+
 The repository's existing `.github/CODEOWNERS` and professor-managed `env-tracking.yml` must be preserved when this skeleton is copied into the real repository.
 
 ## Governance
