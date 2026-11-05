@@ -156,6 +156,12 @@ IAM service clients (ADR-020) live in `iam.service_clients`, `iam.service_client
 per audience and single scope). The runtime role only reads them; the platform operator
 provisions clients, secrets and grants. To verify, apply this branch on a fresh disposable
 database and run `tests/service-clients.sql`. A repeat update must apply zero changesets.
+IAM identity-email issuance uses `iam.identity_email_limits` for shared IP/email-digest
+windows and cooldowns. Only HMAC digests are stored; the API owns the limits and
+normalization rules. Validate the additive migration on an empty IAM database and
+from the previous 15-change-set revision, then run `tests/identity-email-limits.sql`
+against the disposable database. This table does not store email addresses, IPs,
+tokens or email messages.
 
 The repository's existing `.github/CODEOWNERS` and professor-managed `env-tracking.yml` must be preserved when this skeleton is copied into the real repository.
 
