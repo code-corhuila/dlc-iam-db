@@ -136,6 +136,12 @@ When implementing later changes, add SQL, reviewed rollback where applicable,
 and a change set in the matching folder's `changelog.yaml`. Never edit an
 applied change set. Production recovery uses a forward corrective migration.
 
+IAM service clients (ADR-020) live in `iam.service_clients`, `iam.service_client_secrets`
+(two hashed-secret slots per client for rotation) and `iam.service_client_grants` (one row
+per audience and single scope). The runtime role only reads them; the platform operator
+provisions clients, secrets and grants. To verify, apply this branch on a fresh disposable
+database and run `tests/service-clients.sql`. A repeat update must apply zero changesets.
+
 The repository's existing `.github/CODEOWNERS` and professor-managed `env-tracking.yml` must be preserved when this skeleton is copied into the real repository.
 
 ## Governance
