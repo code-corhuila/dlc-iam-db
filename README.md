@@ -168,6 +168,12 @@ revision, insert `tests/outbox-delivery-prior.sql`, apply this branch, then run
 `tests/outbox-delivery-upgrade.sql` and `tests/verify.sql`. A repeat update must
 apply zero changesets. Rows requiring reconciliation stay in IAM for operator review.
 
+IAM service clients (ADR-020) live in `iam.service_clients`, `iam.service_client_secrets`
+(two hashed-secret slots per client for rotation) and `iam.service_client_grants` (one row
+per audience and single scope). The runtime role only reads them; the platform operator
+provisions clients, secrets and grants. To verify, apply this branch on a fresh disposable
+database and run `tests/service-clients.sql`. A repeat update must apply zero changesets.
+
 The repository's existing `.github/CODEOWNERS` and professor-managed `env-tracking.yml` must be preserved when this skeleton is copied into the real repository.
 
 ## Governance

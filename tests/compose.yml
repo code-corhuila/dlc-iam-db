@@ -23,6 +23,7 @@ services:
       - ./hu-iam-006-upgrade.sql:/checks/hu-iam-006-upgrade.sql:ro
       - ./identity-email-limits.sql:/checks/identity-email-limits.sql:ro
       - ./outbox-delivery-state.sql:/checks/outbox-delivery-state.sql:ro
+      - ./service-clients.sql:/checks/service-clients.sql:ro
       - ./hu-iam-staff-name.sql:/checks/hu-iam-staff-name.sql:ro
       - ./hu-iam-login-ip-attempts.sql:/checks/hu-iam-login-ip-attempts.sql:ro
       - ./hu-iam-expired-lock-audit.sql:/checks/hu-iam-expired-lock-audit.sql:ro
