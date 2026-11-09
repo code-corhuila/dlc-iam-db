@@ -1,0 +1,31 @@
+databaseChangeLog:
+  - changeSet:
+      id: 017-iam-service-clients
+      author: dlc-iam-db
+      changes:
+        - sql:
+            sql: |
+              -- ADR-020: IAM issues service JWTs by client credentials.
+              CREATE TABLE iam.service_clients (
+                client_id text PRIMARY KEY CHECK (client_id ~ '^[a-z][a-z0-9-]{1,63}$'),
+                status text NOT NULL CHECK (status IN ('ACTIVE', 'DISABLED')),
+                created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+                updated_at timestamptz NOT NULL DEFAULT statement_timestamp()
+              );
+              -- Two slots let an operator rotate a secret without downtime. Only hashes are stored.
+              CREATE TABLE iam.service_client_secrets (
+                client_id text NOT NULL REFERENCES iam.service_clients (client_id) ON DELETE CASCADE,
+                slot smallint NOT NULL CHECK (slot IN (1, 2)),
+                secret_hash text NOT NULL CHECK (length(secret_hash) BETWEEN 20 AND 512),
+                created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+                PRIMARY KEY (client_id, slot)
+              );
+              -- One row per audience and single scope the client may request.
+              CREATE TABLE iam.service_client_grants (
+                client_id text NOT NULL REFERENCES iam.service_clients (client_id) ON DELETE CASCADE,
+                audience text NOT NULL CHECK (audience ~ '^[a-z][a-z0-9-]{1,63}$'),
+                scope text NOT NULL CHECK (scope ~ '^[a-z][a-z0-9:-]{1,127}$'),
+                PRIMARY KEY (client_id, audience, scope)
+              );
+              GRANT SELECT ON iam.service_clients, iam.service_client_secrets,
+                iam.service_client_grants TO iam_runtime;
