@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 013-iam-staff-lifecycle-audit-requests
+      author: dlc-iam-db
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE iam.staff_account_audit
+                ADD COLUMN reason text,
+                ADD COLUMN idempotency_key uuid,
+                ADD COLUMN expected_version bigint,
+                ADD CONSTRAINT staff_lifecycle_reason_valid CHECK (
+                  reason IS NULL OR (
+                    length(btrim(reason)) BETWEEN 1 AND 1000
+                    AND reason = btrim(reason)
+                  )
+                ),
+                ADD CONSTRAINT staff_lifecycle_request_valid CHECK (
+                  (idempotency_key IS NULL AND expected_version IS NULL)
+                  OR (idempotency_key IS NOT NULL AND expected_version IS NOT NULL
+                      AND expected_version >= 1 AND reason IS NOT NULL
+                      AND action IN ('DISABLED', 'ENABLED'))
+                );
+              CREATE UNIQUE INDEX staff_lifecycle_idempotency_key
+                ON iam.staff_account_audit (idempotency_key)
+                WHERE idempotency_key IS NOT NULL;
