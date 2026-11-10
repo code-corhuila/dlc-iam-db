@@ -22,6 +22,12 @@ API can return its complete `Staff` contract. This migration changes only the
 `iam` schema; its empty-store and previous-version checks are recorded in
 `tests/verification-staff-display-name.md`.
 
+The additive `009-iam-login-ip-attempts` migration supports the five-minute
+login limit. It stores a 32-byte keyed IP digest and an attempt time under IAM
+ownership. The API remains responsible for trusted client-IP selection,
+atomic window enforcement and retention; the table alone does not impose a
+rate limit. Verification is in `tests/verification-login-ip-attempts.md`.
+
 HU-IAM-003 keeps the existing unique normalized staff email and account status
 as the IAM source of truth. A new append-only `staff_account_audit` table records
 the actor, status transition and correlation ID without copying email or password
@@ -144,6 +150,23 @@ stop the migration for owner review rather than being silently changed.
 When implementing later changes, add SQL, reviewed rollback where applicable,
 and a change set in the matching folder's `changelog.yaml`. Never edit an
 applied change set. Production recovery uses a forward corrective migration.
+
+IAM identity-email issuance uses `iam.identity_email_limits` for shared IP/email-digest
+windows and cooldowns. Only HMAC digests are stored; the API owns the limits and
+normalization rules. Validate the additive migration on an empty IAM database and
+from the previous 15-change-set revision, then run `tests/identity-email-limits.sql`
+against the disposable database. This table does not store email addresses, IPs,
+tokens or email messages.
+
+IAM business events retain delivery attempts, their next due time and a terminal
+reconciliation timestamp in `iam.outbox_events`. Unpublished rows from the previous
+revision are backfilled to their original occurrence time. The API publisher will
+advance these fields; a broker outage never reverses the owner transaction. To
+verify, apply this branch on a fresh disposable database and run
+`tests/outbox-delivery-state.sql`. For an upgrade, apply the previous 16-change-set
+revision, insert `tests/outbox-delivery-prior.sql`, apply this branch, then run
+`tests/outbox-delivery-upgrade.sql` and `tests/verify.sql`. A repeat update must
+apply zero changesets. Rows requiring reconciliation stay in IAM for operator review.
 
 IAM service clients (ADR-020) live in `iam.service_clients`, `iam.service_client_secrets`
 (two hashed-secret slots per client for rotation) and `iam.service_client_grants` (one row

@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 015-iam-identity-email-limits
+      author: dlc-iam-db
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE iam.identity_email_limits (
+                purpose text NOT NULL CHECK (purpose IN ('EMAIL_VERIFICATION', 'PASSWORD_RECOVERY')),
+                key_kind text NOT NULL CHECK (key_kind IN ('SOURCE_IP', 'NORMALIZED_EMAIL')),
+                key_digest bytea NOT NULL CHECK (octet_length(key_digest) = 32),
+                window_started_at timestamptz NOT NULL,
+                last_allowed_at timestamptz NOT NULL,
+                attempt_count integer NOT NULL CHECK (attempt_count BETWEEN 1 AND 10),
+                PRIMARY KEY (purpose, key_kind, key_digest),
+                CONSTRAINT identity_email_limit_time_order
+                  CHECK (last_allowed_at >= window_started_at)
+              );
+              CREATE INDEX identity_email_limits_retention
+                ON iam.identity_email_limits (last_allowed_at);
+              GRANT SELECT, INSERT, UPDATE, DELETE ON iam.identity_email_limits TO iam_runtime;
