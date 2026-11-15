@@ -1,0 +1,5 @@
+services:
+  postgres:
+    volumes:
+      - ./hu-iam-session-version.sql:/checks/hu-iam-session-version.sql:ro
+      - ./hu-iam-session-version-prior.sql:/checks/hu-iam-session-version-prior.sql:ro
